@@ -1,238 +1,175 @@
-# KMOS Landing Page - MIME Type Error Fix Guide
+# KMOS Landing Page - Deployment & MIME Type Fix Guide
 
-## Problem Summary
-When loading JavaScript modules from `http://kmos.in/kmos/assets/index-*.js`, the browser blocks the request with error:
+## Problem Diagnosis
+
+Based on the error logs, the issue is **404 Not Found** for JavaScript files:
 ```
-Loading module from was blocked because of a disallowed MIME type (text/html)
+GET http://kmos.in/kmos/assets/index-BNFjHO7f.js
+Status: 404 Not Found
+Content-Type: text/html; charset=utf-8
 ```
 
-This indicates the server is serving JavaScript files with `text/html` content-type instead of `application/javascript`.
+**Root Cause**: The JavaScript files with hashed names don't exist at the specified paths. This is because:
+1. The build hasn't been deployed with the current configuration
+2. The static adapter wasn't configured for proper GitHub Pages deployment
+3. Files need to be rebuilt and redeployed
 
-## Root Cause Analysis
+## Solution Applied
 
-### Common Causes:
-1. **File Not Found** - JavaScript file doesn't exist, server returns index.html with text/html
-2. **Rewrite Rules** - Server redirect rules are incorrectly routing .js requests to HTML pages
-3. **Base Path Mismatch** - vite.config.js base path doesn't match actual deployment path
-4. **Custom Domain Configuration** - Domain provider's redirect rules are interfering
-5. **Caching** - Old configurations are being cached by the server or browser
+### Changes Made:
 
-## Immediate Solutions
+1. **Updated [`package.json`](package.json)**: Switched from `adapter-auto` to `adapter-static` for reliable static site generation
 
-### Solution 1: Verify Build Output
-First, check that JavaScript files are actually being generated:
+2. **Updated [`svelte.config.js`](svelte.config.js)**: Configured static adapter with proper GitHub Pages settings
 
+3. **Created [`src/routes/+layout.js`](src/routes/+layout.js)**: Enabled prerendering for all pages
+
+4. **Updated [`.htaccess`](.htaccess)**: Added explicit MIME type configuration and SPA fallback rules
+
+5. **Added favicon**: Copied [`static/favicon.svg`](static/favicon.svg) and updated [`src/app.html`](src/app.html) to reference it
+
+## Step-by-Step Fix
+
+### Step 1: Install Dependencies
 ```bash
-# Build the project
-npm run build
+npm install
+```
 
-# Check if assets directory exists with JS files
+### Step 2: Build the Project
+```bash
+npm run build
+```
+
+### Step 3: Verify Build Output
+```bash
+# Check that assets are generated
 ls -la dist/assets/
+
+# You should see files like:
+# - index-*.js (JavaScript bundles)
+# - index-*.css (CSS bundles)
 ```
 
-Expected output should show files like:
-- `index-*.js` (main JavaScript bundle)
-- `index-*.css` (styles)
-
-### Solution 2: Check Browser Network Tab
-1. Open Developer Tools (F12) → Network tab
-2. Refresh the page
-3. Look for the JavaScript file request
-4. Check the "Response Headers" for:
-   - `Content-Type: application/javascript` ✓
-   - `Content-Type: text/html` ✗ (this is the problem)
-5. Note the HTTP status code:
-   - 200: File found but wrong type
-   - 404: File not found
-   - 301/302: Redirected
-
-### Solution 3: Test URL Accessibility
-Directly test if JavaScript files are accessible:
-
+### Step 4: Commit and Push
 ```bash
-# Test with curl (check headers)
-curl -I http://kmos.in/kmos/assets/index-BNFjHO7f.js
-
-# Expected good response:
-# HTTP/2 200
-# content-type: application/javascript
-
-# Bad response (problem):
-# HTTP/2 200
-# content-type: text/html
-```
-
-## Deployment-Specific Fixes
-
-### GitHub Pages with Custom Domain
-
-#### If using GitHub Pages with custom domain (kmos.in):
-
-1. **Verify Custom Domain Settings**:
-   - Go to: GitHub Repository → Settings → Pages
-   - Ensure custom domain is correctly configured
-   - Check "Enforce HTTPS" is enabled
-
-2. **Check DNS Configuration**:
-   - Ensure A records or CNAME are pointing to GitHub Pages
-   - For A records: Point to GitHub's IP addresses (185.199.108.153, etc.)
-   - For CNAME: Point to your-username.github.io
-
-3. **Add .htaccess to Repository**:
-   - The `.htaccess` file in this repository will be deployed with GitHub Pages
-   - It explicitly sets JavaScript MIME types and SPA fallback rules
-
-### Apache Server Configuration
-
-If hosting on Apache server:
-
-1. **Create/Edit .htaccess**:
-   ```apache
-   # Ensure these directives are present:
-   AddType application/javascript .js
-   AddType text/javascript .js
-   
-   <FilesMatch "\.(js|mjs)$">
-       Header set Content-Type "application/javascript"
-   </FilesMatch>
-   ```
-
-2. **Enable mod_headers and mod_rewrite**:
-   ```bash
-   a2enmod headers
-   a2enmod rewrite
-   systemctl restart apache2
-   ```
-
-3. **Verify AllowOverride**:
-   ```apache
-   # In your virtual host config:
-   <Directory /var/www/html>
-       AllowOverride All
-   </Directory>
-   ```
-
-### Nginx Server Configuration
-
-If hosting on Nginx server:
-
-1. **Add MIME types to nginx.conf**:
-   ```nginx
-   http {
-       types {
-           application/javascript js mjs;
-       }
-       
-       server {
-           # ... server config
-           
-           location ~* \.(js|mjs)$ {
-               add_header Content-Type application/javascript;
-           }
-       }
-   }
-   ```
-
-2. **Test and reload**:
-   ```bash
-   nginx -t
-   systemctl reload nginx
-   ```
-
-## Step-by-Step Fix Procedure
-
-### Step 1: Verify Build Configuration
-Check [`vite.config.ts`](vite.config.ts:6) has correct base path:
-```typescript
-export default defineConfig({
-  base: '/kmos/',  // Must match your deployment URL
-  // ...
-});
-```
-
-### Step 2: Clear All Caches
-```bash
-# Clear npm cache
-npm cache clean --force
-
-# Clear browser cache (Ctrl+Shift+R or Cmd+Shift+R)
-
-# If using CDN, purge CDN cache
-```
-
-### Step 3: Redeploy with Fixed Configuration
-```bash
-# Rebuild
-npm run build
-
-# Commit and push
-git add .
-git commit -m "Fix MIME type configuration"
+git add -A
+git commit -m "Fix MIME type and 404 errors: switch to adapter-static, add proper routing"
 git push origin main
-
-# Wait 1-2 minutes for GitHub Pages to update
 ```
 
-### Step 4: Verify the Fix
-```bash
-# Test JavaScript file headers
-curl -I https://kmos.in/kmos/assets/index-BNFjHO7f.js
+### Step 5: Wait for GitHub Pages Deployment
+- Wait 1-2 minutes for GitHub Actions to build and deploy
+- Check the deployment status in your repository's "Actions" tab
 
-# Should return:
+### Step 6: Verify the Fix
+```bash
+# Test JavaScript file accessibility
+curl -I http://kmos.in/kmos/assets/
+
+# Test specific JS file (use the actual filename from your build)
+curl -I http://kmos.in/kmos/assets/index-*.js
+
+# Expected response:
 # HTTP/2 200
 # content-type: application/javascript
 ```
 
-## Troubleshooting Checklist
+## Important: Base Path Configuration
 
-- [ ] JavaScript files exist in `dist/assets/`
-- [ ] Base path in vite.config.ts matches deployment URL
-- [ ] Server configuration has correct MIME types
-- [ ] No redirect rules are routing .js to .html
-- [ ] Browser cache is cleared
-- [ ] CDN cache is purged (if using CDN)
-- [ ] HTTPS is enforced and working
-
-## Alternative Solutions
-
-### If using Cloudflare:
-1. Disable "Auto Minify" for JavaScript
-2. Check "Rocket Loader" isn't interfering
-3. Purge cache in Cloudflare dashboard
-
-### If using other CDN:
-1. Verify CDN isn't transforming responses
-2. Check CDN MIME type settings
-3. Purge CDN cache after deployment
-
-## Emergency Workaround
-
-If immediate fix is needed, add this to your HTML before the problematic script:
-```html
-<script>
-  // Force correct MIME type check
-  const originalCreateElement = document.createElement;
-  document.createElement = function(tagName) {
-    const element = originalCreateElement.apply(this, arguments);
-    if (tagName === 'script') {
-      element.type = 'application/javascript';
-    }
-    return element;
-  };
-</script>
+Your [`vite.config.ts`](vite.config.ts:6) has:
+```typescript
+base: '/kmos/',
 ```
 
-This is NOT a permanent solution - fix the server configuration instead.
+This means:
+- Assets are served from: `http://kmos.in/kmos/assets/`
+- The `.htaccess` file is configured with `RewriteBase /kmos/`
 
-## Files Created
+**If your repository name is NOT "kmos"**, you need to:
+1. Change `base: '/your-repo-name/'` in `vite.config.ts`
+2. Update `RewriteBase /your-repo-name/` in `.htaccess`
 
-- [`.htaccess`](.htaccess) - Apache server configuration with MIME types and SPA fallback
-- [`nginx.conf`](nginx.conf) - Nginx server configuration for alternative hosting
-- [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) - This troubleshooting guide
+## GitHub Pages Custom Domain Setup
 
-## Support
+Verify these settings in your GitHub repository:
 
-If issue persists after trying all solutions:
-1. Check GitHub Pages status: https://www.githubstatus.com/
-2. Verify domain DNS propagation: https://dnschecker.org/
-3. Contact hosting provider support
+1. **Repository Settings → Pages**:
+   - Source: "Deploy from a branch"
+   - Branch: "gh-pages" (or "main" with `/ (root)` folder)
+   - Custom domain: `kmos.in`
+   - ✅ Enforce HTTPS
+
+2. **DNS Configuration**:
+   - A records pointing to GitHub IPs: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+   - OR CNAME record: `kmos.in → your-username.github.io`
+
+## Troubleshooting
+
+### If 404 Persists:
+
+1. **Check GitHub Pages source**:
+   ```bash
+   # Verify the build folder structure
+   cat .github/workflows/deploy.yml
+   # Ensure path: 'dist' is correct
+   ```
+
+2. **Test locally**:
+   ```bash
+   npm run preview
+   # Visit http://localhost:4173/kmos/
+   # Check if assets load correctly
+   ```
+
+3. **Clear CDN/browser cache**:
+   - Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
+   - If using Cloudflare, purge cache
+
+### If MIME Type Still Wrong:
+
+1. **Check response headers**:
+   ```bash
+   curl -I http://kmos.in/kmos/assets/index-*.js
+   ```
+
+2. **Verify .htaccess is deployed**:
+   - Check if `.htaccess` appears in your GitHub repository
+   - GitHub Pages should serve it automatically
+
+3. **Check GitHub Pages processing**:
+   - Go to Repository Settings → Pages
+   - Look for any warnings about configuration
+
+## Files Modified/Created
+
+| File | Purpose |
+|------|---------|
+| [`package.json`](package.json) | Switched to adapter-static |
+| [`svelte.config.js`](svelte.config.js) | Configured static adapter |
+| [`src/routes/+layout.js`](src/routes/+layout.js) | Enabled prerendering |
+| [`.htaccess`](.htaccess) | MIME types & routing rules |
+| [`nginx.conf`](nginx.conf) | Nginx alternative config |
+| [`static/favicon.svg`](static/favicon.svg) | Favicon image |
+| [`src/app.html`](src/app.html) | Added favicon link |
+| [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) | This guide |
+
+## Quick Verification Commands
+
+```bash
+# 1. Check build output exists
+ls dist/assets/
+
+# 2. Test deployment
+curl -I http://kmos.in/kmos/
+
+# 3. Test JavaScript file
+curl -I http://kmos.in/kmos/assets/index-*.js
+
+# 4. Check MIME type
+curl -s -I http://kmos.in/kmos/assets/*.js | grep -i content-type
+```
+
+Expected results:
+- `http://kmos.in/kmos/` → 200 OK, `text/html`
+- `*.js` files → 200 OK, `application/javascript`
+- `*.css` files → 200 OK, `text/css`

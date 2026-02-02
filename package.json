@@ -21,7 +21,7 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "@sveltejs/adapter-auto": "^7.0.0",
+    "@sveltejs/adapter-static": "^3.0.0",
     "@sveltejs/kit": "^2.50.1"
   }
 }

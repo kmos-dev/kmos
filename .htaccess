@@ -1,58 +1,69 @@
 # Apache .htaccess configuration for KMOS Landing Page
-# This file should be placed in the root of your GitHub Pages repository
+# Deployed on GitHub Pages with custom domain kmos.in
 
 # Enable RewriteEngine
 RewriteEngine On
 
-# Set base path for GitHub Pages subdirectory deployment
-# Change /kmos/ to match your repository name if different
+# ============================================
+# GitHub Pages Base Path Configuration
+# ============================================
+# IMPORTANT: Adjust /kmos/ to match your repository name
+# If your repo is named "kmos", keep /kmos/
+# If your repo is named differently, change this path
+
 RewriteBase /kmos/
 
 # ============================================
-# MIME Type Configuration - Ensure correct Content-Type
+# MIME Type Configuration - Critical Fix
 # ============================================
 
-# Explicitly set JavaScript MIME types
+# Explicitly set JavaScript MIME types to prevent text/html fallback
 AddType application/javascript .js
 AddType application/javascript .mjs
 AddType text/javascript .js
 
-# Set proper headers for JavaScript files
+# Ensure proper Content-Type headers for JavaScript files
 <FilesMatch "\.(js|mjs)$">
     Header set Content-Type "application/javascript"
     Header set X-Content-Type-Options "nosniff"
 </FilesMatch>
 
+# Set CSS MIME type
+AddType text/css .css
+
 # ============================================
-# SPA Fallback Configuration
+# SPA Fallback Configuration - Route all requests to index.html
 # ============================================
 
-# For Single Page Application (SPA) routing
-# All requests that don't match existing files should fall back to index.html
-# This is crucial for client-side routing
+# For Single Page Application (SPA) - serves index.html for all routes
+# This must come AFTER file checks to allow actual files to be served
 
-# Only apply to requests that are not for existing files
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ /kmos/index.html [QSA,L]
 
 # ============================================
-# Cache Control Headers (Optional - for production performance)
+# Cache Control Headers (Performance)
 # ============================================
 
-# Cache JavaScript files aggressively
+# Cache JavaScript files for 1 year (immutable - never revalidate)
 <FilesMatch "\.(js|mjs)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
 
-# Cache CSS files
+# Cache CSS files for 1 year
 <FilesMatch "\.css$">
     Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
 
-# Cache images
+# Cache images for 1 year
 <FilesMatch "\.(png|jpg|jpeg|gif|svg|ico|webp)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Cache HTML files (shorter cache for updates)
+<FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=3600, must-revalidate"
 </FilesMatch>
 
 # ============================================
@@ -67,7 +78,7 @@ Header set X-Frame-Options "SAMEORIGIN"
 Header set X-XSS-Protection "1; mode=block"
 
 # ============================================
-# Gzip Compression (if supported by your hosting)
+# Gzip Compression
 # ============================================
 
 <IfModule mod_deflate.c>
@@ -75,12 +86,22 @@ Header set X-XSS-Protection "1; mode=block"
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE text/javascript
     
-    # Compress other text resources
-    AddOutputFilterByType DEFLATE text/html
+    # Compress CSS and HTML
     AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE text/plain
-    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/html
     
-    # Compress SVG
+    # Compress JSON and plain text
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/plain
+    
+    # Compress SVG images
     AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
+
+# ============================================
+# Force HTTPS (if using HTTPS on custom domain)
+# ============================================
+
+# Uncomment the following lines if you want to force HTTPS
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
