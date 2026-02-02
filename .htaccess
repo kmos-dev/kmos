@@ -1,0 +1,86 @@
+# Apache .htaccess configuration for KMOS Landing Page
+# This file should be placed in the root of your GitHub Pages repository
+
+# Enable RewriteEngine
+RewriteEngine On
+
+# Set base path for GitHub Pages subdirectory deployment
+# Change /kmos/ to match your repository name if different
+RewriteBase /kmos/
+
+# ============================================
+# MIME Type Configuration - Ensure correct Content-Type
+# ============================================
+
+# Explicitly set JavaScript MIME types
+AddType application/javascript .js
+AddType application/javascript .mjs
+AddType text/javascript .js
+
+# Set proper headers for JavaScript files
+<FilesMatch "\.(js|mjs)$">
+    Header set Content-Type "application/javascript"
+    Header set X-Content-Type-Options "nosniff"
+</FilesMatch>
+
+# ============================================
+# SPA Fallback Configuration
+# ============================================
+
+# For Single Page Application (SPA) routing
+# All requests that don't match existing files should fall back to index.html
+# This is crucial for client-side routing
+
+# Only apply to requests that are not for existing files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /kmos/index.html [QSA,L]
+
+# ============================================
+# Cache Control Headers (Optional - for production performance)
+# ============================================
+
+# Cache JavaScript files aggressively
+<FilesMatch "\.(js|mjs)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Cache CSS files
+<FilesMatch "\.css$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# Cache images
+<FilesMatch "\.(png|jpg|jpeg|gif|svg|ico|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+
+# ============================================
+# Security Headers
+# ============================================
+
+# Prevent MIME type sniffing
+Header set X-Content-Type-Options "nosniff"
+
+# Basic security headers
+Header set X-Frame-Options "SAMEORIGIN"
+Header set X-XSS-Protection "1; mode=block"
+
+# ============================================
+# Gzip Compression (if supported by your hosting)
+# ============================================
+
+<IfModule mod_deflate.c>
+    # Compress JavaScript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE text/javascript
+    
+    # Compress other text resources
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE application/json
+    
+    # Compress SVG
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
