@@ -3,9 +3,10 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [svelte()],
-  base: '',
+  base: '/kmos/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets'
-  }
+  },
+  appType: 'spa'
 });
